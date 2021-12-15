@@ -107,7 +107,7 @@ char uart_read(struct UartDevice* dev) {
 	char *cr = &c;
 	rc = read(dev->fd, cr, 1);
 	if (rc < 0) {
-		printf("%s: failed to read uart data\r\n", __func__);
+		printf("failed to read uart data\r\n");
 		return rc;
 	}
 

@@ -12,7 +12,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-
+#include <signal.h>
 #include "uart.h"
 
 #include <stdlib.h>
@@ -20,7 +20,24 @@
 void setup_terminal(void);
 void *get_from_device(void *arguments);
 
+
+static char done = 0;
+static void sigHandler(int signum)
+{
+    done = 1;
+}
+
 int main(int argc, char *argv[]) {
+
+	struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_handler = sigHandler;
+    sa.sa_flags = 0;// not SA_RESTART!;
+
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+
+
 	setup_terminal();
 	if (argc == 1)
 	{
@@ -45,11 +62,12 @@ int main(int argc, char *argv[]) {
 		pthread_t sniffer_send_device_thread;
 		pthread_create(&sniffer_send_device_thread, NULL, get_from_device, (void *)&dev);
 
-		while (1)
+		while (!done)
 		{
 			char c;
-			while ((c = getchar()))
+			while ((c = getchar()) && c != EOF)
 			{
+				
 				if (c == '\n')
 					uart_write(&dev, '\r');
 				else
@@ -58,15 +76,14 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
-			pthread_join(sniffer_send_device_thread, NULL);
 		}
+		pthread_exit(&sniffer_send_device_thread);
 	}
 
 }
 
 void setup_terminal(void)
 {
-	int c;   
     static struct termios oldt, newt;
 
     tcgetattr( STDIN_FILENO, &oldt);
@@ -81,9 +98,10 @@ void setup_terminal(void)
 
 void *get_from_device(void *dev_struct)
 {
-	while (1)
+	char rc = 0;
+	while ((rc =uart_read(dev_struct)) != -1)
 	{
-		printf("%c", uart_read(dev_struct));
+		printf("%c", rc);
 		fflush(stdout);
 	}
 
