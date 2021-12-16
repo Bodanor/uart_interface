@@ -81,6 +81,8 @@ int main(int argc, char *argv[]) {
 		}
 		pthread_cancel(sniffer_send_device_thread);
 		tcsetattr( STDIN_FILENO, TCSANOW, oldt);
+		uart_stop(&dev);
+		free(oldt);
 	}
 
 }
