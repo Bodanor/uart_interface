@@ -17,13 +17,15 @@
 
 #include <stdlib.h>
 
-void setup_terminal(void);
+struct termios *setup_terminal(void);
 void *get_from_device(void *arguments);
 
 
 static char done = 0;
 static void sigHandler(int signum)
 {
+
+	printf("Caught Cancel SIGNAL !\nStarting Cleanup process ...\n");
     done = 1;
 }
 
@@ -32,13 +34,13 @@ int main(int argc, char *argv[]) {
 	struct sigaction sa;
     memset(&sa, 0, sizeof(struct sigaction));
     sa.sa_handler = sigHandler;
-    sa.sa_flags = 0;// not SA_RESTART!;
+    sa.sa_flags = 0;
 
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
 
 
-	setup_terminal();
+	struct termios *oldt = setup_terminal();
 	if (argc == 1)
 	{
 		printf("Argument device missing !\n\nUsage : uart <devicename>\t/dev/ttyACMx\n");
@@ -77,22 +79,27 @@ int main(int argc, char *argv[]) {
 			}
 
 		}
-		pthread_exit(&sniffer_send_device_thread);
+		pthread_cancel(sniffer_send_device_thread);
+		tcsetattr( STDIN_FILENO, TCSANOW, oldt);
 	}
 
 }
 
-void setup_terminal(void)
+struct termios *setup_terminal(void)
 {
-    static struct termios oldt, newt;
+    struct termios *oldt = malloc(sizeof(struct termios));
+	if (oldt == NULL)
+		return NULL;
+	struct termios newt;
 
-    tcgetattr( STDIN_FILENO, &oldt);
+    tcgetattr( STDIN_FILENO, oldt);
     
-    newt = oldt;
+	newt = *oldt;
 
-    newt.c_lflag &= ~(ICANON | ECHO);          
+    newt.c_lflag &= ~(ICANON | ECHOE | ECHO);          
 
-    tcsetattr( STDIN_FILENO, TCSANOW, &newt);      
+    tcsetattr( STDIN_FILENO, TCSANOW, &newt);
+	return oldt;    
 
 }
 
