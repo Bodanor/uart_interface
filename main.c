@@ -12,7 +12,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-#include <signal.h>
+#include <dirent.h>
 #include "uart.h"
 
 #include <stdlib.h>
@@ -22,28 +22,48 @@ void *get_from_device(void *arguments);
 
 
 static char done = 0;
-static void sigHandler(int signum)
-{
-
-	printf("Caught Cancel SIGNAL !\nStarting Cleanup process ...\n");
-    done = 1;
-}
 
 int main(int argc, char *argv[]) {
 
-	struct sigaction sa;
-    memset(&sa, 0, sizeof(struct sigaction));
-    sa.sa_handler = sigHandler;
-    sa.sa_flags = 0;
-
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
-
-
+	DIR *d;
+	struct dirent *dir;
 	struct termios *oldt = setup_terminal();
+	short interface_found = 0;
+
 	if (argc == 1)
 	{
-		printf("Argument device missing !\n\nUsage : uart <devicename>\t/dev/ttyACMx\n");
+		printf("Argument device missing !\n\nUsage : uart <devicename>\t/dev/ttyACMx\n\n");
+		d = opendir("/dev/");
+		if (d)
+		{
+			while ((dir = readdir(d)) != NULL && interface_found == 0)
+			{
+				if (strncmp(dir->d_name, "ttyACM", 6) == 0)
+				{
+					interface_found = 1;
+				}
+			}
+		}
+		if (interface_found)
+		{
+			printf("Possible interface : \n");
+			d = opendir("/dev/");
+			if (d)
+			{
+				while ((dir = readdir(d)) != NULL && interface_found != 0)
+				{
+					if (strncmp(dir->d_name, "ttyACM", 6) == 0)
+					{
+						printf("%s\n", dir->d_name);
+					}
+				}
+				putchar('\n');
+			}
+		}
+		else
+			printf("No interface found !\n\n");
+		tcsetattr( STDIN_FILENO, TCSANOW, oldt);
+		free(oldt);
 		return -1;
 	}
 	else
@@ -71,7 +91,7 @@ int main(int argc, char *argv[]) {
 			{
 				
 				if (c == '\n')
-					uart_write(&dev, '\r');
+					uart_write(&dev, '\n');
 				else
 				{
 					uart_write(&dev, c);
