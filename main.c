@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 		if (interface_found)
 		{
 			printf("Possible interface : \n");
-			d = opendir("/dev/");
+			
 			if (d)
 			{
 				while ((dir = readdir(d)) != NULL && interface_found != 0)
@@ -93,9 +93,7 @@ int main(int argc, char *argv[]) {
 				if (c == '\n')
 					uart_write(&dev, '\n');
 				else
-				{
 					uart_write(&dev, c);
-				}
 			}
 
 		}
