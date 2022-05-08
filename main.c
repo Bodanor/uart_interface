@@ -19,9 +19,7 @@
 
 struct termios *setup_terminal(void);
 void *get_from_device(void *arguments);
-
-
-static char done = 0;
+void *send_to_device(void *arguments);
 
 int main(int argc, char *argv[]) {
 
@@ -46,6 +44,7 @@ int main(int argc, char *argv[]) {
 		}
 		if (interface_found)
 		{
+			d = opendir("/dev/");
 			printf("Possible interface : \n");
 			
 			if (d)
@@ -78,25 +77,17 @@ int main(int argc, char *argv[]) {
 		rc = uart_start(&dev, false);
 		if (rc)
 		{
+			tcsetattr( STDIN_FILENO, TCSANOW, oldt);
+			free(oldt);
 			return rc;
 		}
 
+		pthread_t sniffer_read_device_thread;
 		pthread_t sniffer_send_device_thread;
-		pthread_create(&sniffer_send_device_thread, NULL, get_from_device, (void *)&dev);
+		pthread_create(&sniffer_read_device_thread, NULL, get_from_device, (void *)&dev);
+		pthread_create(&sniffer_send_device_thread, NULL, send_to_device, (void*)&dev);
 
-		while (!done)
-		{
-			char c;
-			while ((c = getchar()) && c != EOF)
-			{
-				
-				if (c == '\n')
-					uart_write(&dev, '\n');
-				else
-					uart_write(&dev, c);
-			}
-
-		}
+		pthread_join(sniffer_read_device_thread, NULL);
 		pthread_cancel(sniffer_send_device_thread);
 		tcsetattr( STDIN_FILENO, TCSANOW, oldt);
 		uart_stop(&dev);
@@ -126,10 +117,25 @@ struct termios *setup_terminal(void)
 void *get_from_device(void *dev_struct)
 {
 	char rc = 0;
-	while ((rc =uart_read(dev_struct)) != -1)
+	while ((rc =uart_read(dev_struct)) != 0)
 	{
 		printf("%c", rc);
+
 		fflush(stdout);
 	}
-
+}
+void *send_to_device(void *dev_struct)
+{
+	char c;
+	while ((c = getchar()) && c != EOF)
+	{
+		
+		if (c == '\n')
+		{
+			//uart_write(&dev, '\r');
+			uart_write(dev_struct, '\n');
+		}
+		else
+			uart_write(dev_struct, c);
+	}
 }

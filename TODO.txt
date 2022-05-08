@@ -1,3 +1,1 @@
 1) Add SIGINT
-2) Add menu to automatically choose an available interface
-3) Add the ability to run the problem by providing the interface (Default 9600 or user can change)
